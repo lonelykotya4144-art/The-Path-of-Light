@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Путь Света - Эволюция</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: white;
+            font-family: 'Press+Start+2P', cursive;
+            overflow: hidden;
+            touch-action: manipulation;
+            user-select: none;
+        }
+
+        canvas {
+            image-rendering: pixelated;
+            display: block;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .sign-panel {
+            position: absolute;
+            top: -800px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2a1a10;
+            border: 4px solid #fff;
+            padding: 20px;
+            text-align: center;
+            transition: top 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: auto;
+            z-index: 100;
+        }
+
+        .sign-panel.open { top: 20px; }
+        .shop-sign { width: 340px; }
+        .book-sign { width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
+
+        .rope {
+            position: absolute;
+            width: 4px;
+            background: #4a3a2a;
+            height: 400px;
+            top: -400px;
+        }
+
+        .shop-item {
+            background: #3d2b1f;
+            border: 2px solid #5d4b3f;
+            margin-top: 10px;
+            padding: 8px;
+            cursor: pointer;
+            font-size: 8px;
+            transition: all 0.2s;
+        }
+
+        .book-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 50px;
+            height: 60px;
+            background: #4a3a2a;
+            border: 2px solid #fff;
+            cursor: pointer;
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: levitate 3s ease-in-out infinite;
+            z-index: 50;
+        }
+
+        @keyframes levitate {
+            0%, 100% { transform: translateY(0); box-shadow: 0 5px 15px rgba(255,100,0,0.3); }
+            50% { transform: translateY(-10px); box-shadow: 0 20px 20px rgba(255,100,0,0.5); }
+        }
+
+        .illustration-box {
+            width: 120px;
+            height: 80px;
+            background: #000;
+            margin: 10px auto;
+            border: 2px solid #5d4b3f;
+        }
+
+        .btn-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #000;
+            border: 2px solid white;
+            color: white;
+            padding: 8px;
+            font-size: 10px;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+
+        .status-msg {
+            position: absolute;
+            bottom: 80px;
+            width: 100%;
+            text-align: center;
+            font-size: 8px;
+            color: #ffdd00;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <div class="book-btn" onclick="toggleBook()">📖</div>
+        <button class="btn-toggle" onclick="toggleShop()">МАГАЗИН</button>
+        
+        <!-- МАГАЗИН -->
+        <div id="shop" class="sign-panel shop-sign">
+            <div class="rope" style="left: 20px;"></div>
+            <div class="rope" style="right: 20px;"></div>
+            <h2 class="mb-2 text-yellow-500 text-sm">МАГАЗИН</h2>
+            <div id="buy-fire" class="shop-item" onclick="buyUpgrade('fire')">ОГОНЬ (<span id="fire-lvl">1</span>): <span id="fire-cost">50</span></div>
+            <div id="buy-oil" class="shop-item" onclick="buyUpgrade('oil')">МАСЛО: <span id="oil-cost">150</span></div>
+            <div id="buy-firefly" class="shop-item" onclick="buyUpgrade('firefly')">СВЕТЛЯЧОК: <span id="firefly-cost">300</span></div>
+            <div id="buy-gas" class="shop-item hidden" onclick="buyUpgrade('gas')">ГАЗ: <span id="gas-cost">600</span></div>
+            <div id="buy-rebirth" class="shop-item rebirth-btn hidden" onclick="startRebirth()">ПЕРЕРОЖДЕНИЕ: <span id="rebirth-cost-val">1000</span></div>
+            <button class="mt-4 text-[8px] underline" onclick="toggleShop()">ЗАКРЫТЬ</button>
+        </div>
+
+        <!-- КНИГА -->
+        <div id="book" class="sign-panel book-sign">
+            <div class="rope" style="left: 40px;"></div>
+            <div class="rope" style="right: 40px;"></div>
+            <h2 class="text-yellow-600 text-sm mb-4">ГРИМУАР СВЕТА</h2>
+            <div class="text-[8px] text-left space-y-6 overflow-y-auto pr-2 h-[60vh]">
+                <section>
+                    <p class="text-yellow-500 uppercase">🔥 Огонь</p>
+                    <p>Усиливает пламя. На 2-м перерождении призывает духов-лучников внутри огня.</p>
+                    <canvas id="illust-fire" class="illustration-box"></canvas>
+                </section>
+                <section>
+                    <p class="text-yellow-500 uppercase">🍶 Масло</p>
+                    <p>Дает множитель света x3. На высших этапах резонирует со светлячком.</p>
+                    <canvas id="illust-oil" class="illustration-box"></canvas>
+                </section>
+                <section>
+                    <p class="text-yellow-500 uppercase">🐝 Светлячок</p>
+                    <p>Собирает свет сам. С каждым перерождением становится эффективнее.</p>
+                    <canvas id="illust-fly" class="illustration-box"></canvas>
+                </section>
+            </div>
+            <button class="mt-4 text-[8px] underline" onclick="toggleBook()">ЗАКРЫТЬ</button>
+        </div>
+
+        <div id="status-msg" class="status-msg"></div>
+        <div class="absolute bottom-[30px] w-full text-center text-[14px] text-white" style="text-shadow: 2px 2px #000;">
+            СВЕТ: <span id="light-count">0</span>
+        </div>
+        <div class="absolute top-[50px] left-[10px] text-[8px] text-yellow-500">
+            ПЕРЕРОЖДЕНИЕ: <span id="rebirth-count-ui">0</span>
+        </div>
+    </div>
+
+    <button id="darkness-btn" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); display:none; border:4px solid red; color:red; padding:20px; background:#000; z-index:500; font-family:'Press Start 2P';" onclick="completeRebirth()">ТЬМА</button>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const darknessBtn = document.getElementById('darkness-btn');
+        const statusMsg = document.getElementById('status-msg');
+        
+        let width, height, audioCtx, mainGain, currentSound;
+
+        let state = {
+            light: 0, fireLevel: 1, fireCost: 50,
+            hasOil: false, oilCost: 150,
+            fireflies: 0, fireflyCost: 300,
+            hasGas: false, gasCost: 600,
+            rebirthCount: 0, isRebirthing: false,
+            lastFireflyTime: 0, flashOpacity: 0,
+            flameWobble: 0, oilAnim: 0, oilBoostTimer: 0,
+            gasTimer: 0, fireflyRestTimer: 0
+        };
+
+        const saved = localStorage.getItem('lightPathSave_v3');
+        if (saved) Object.assign(state, JSON.parse(saved));
+
+        function saveGame() { localStorage.setItem('lightPathSave_v3', JSON.stringify(state)); }
+
+        // --- ЗВУК ---
+        function playMusic() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (currentSound) currentSound.stop();
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            if (state.rebirthCount === 0) {
+                osc.type = 'sawtooth'; osc.frequency.value = 45;
+                const f = audioCtx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 150;
+                osc.connect(f); f.connect(gain);
+            } else if (state.rebirthCount === 1) {
+                osc.type = 'sine'; osc.frequency.value = 600;
+                setInterval(() => {
+                    gain.gain.setTargetAtTime(0.1, audioCtx.currentTime, 0.05);
+                    gain.gain.setTargetAtTime(0.001, audioCtx.currentTime + 0.1, 0.1);
+                }, 1200);
+                osc.connect(gain);
+            } else {
+                osc.type = 'triangle'; osc.frequency.value = 150 + (state.rebirthCount * 40);
+                const lfo = audioCtx.createOscillator(); lfo.frequency.value = 0.4;
+                const lg = audioCtx.createGain(); lg.gain.value = 15;
+                lfo.connect(lg); lg.connect(osc.frequency);
+                lfo.start(); osc.connect(gain);
+            }
+            gain.gain.value = 0.04; gain.connect(audioCtx.destination);
+            osc.start(); currentSound = osc;
+        }
+
+        function resize() {
+            width = window.innerWidth; height = window.innerHeight;
+            canvas.width = width; canvas.height = height;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- ВИЗУАЛ СВЕЧИ И ПЛАМЕНИ (ВОЗВРАТ) ---
+        function drawArchers(centerX, centerY, scale) {
+            if (state.rebirthCount < 2) return;
+            const count = Math.min(state.fireLevel, 6);
+            ctx.fillStyle = state.gasTimer > 0 ? '#00ffff' : '#ffaa00';
+            for (let i = 0; i < count; i++) {
+                const angle = (Date.now() / 1500) + (i * (Math.PI * 2 / count));
+                const dist = 18 * scale;
+                const ax = centerX + Math.cos(angle) * dist;
+                const ay = centerY - 15 + Math.sin(angle * 2) * 5;
+                ctx.fillRect(ax - 2, ay - 4, 4, 6); 
+                ctx.fillRect(ax - 4, ay - 2, 8, 1); 
+            }
+        }
+
+        function drawFlame(x, y, scale) {
+            state.flameWobble += 0.1;
+            const flicker = Math.sin(state.flameWobble * 2.5) * 4;
+            const pulse = Math.sin(state.flameWobble * 4) * 3;
+            
+            let colorOuter = state.gasTimer > 0 ? '#0066ff' : '#ff6a00';
+            let colorInner = state.gasTimer > 0 ? '#00ffff' : '#ffd800';
+            let haloColor = state.gasTimer > 0 ? 'rgba(0, 100, 255,' : 'rgba(255, 150, 50,';
+
+            // Ореол
+            const glowSize = (65 + state.fireLevel * 14 + pulse) * scale;
+            const grd = ctx.createRadialGradient(x, y - 25, 0, x, y - 25, glowSize);
+            grd.addColorStop(0, `${haloColor}${0.45 + state.flashOpacity})`);
+            grd.addColorStop(0.6, `${haloColor}0.05)`);
+            grd.addColorStop(1, 'rgba(0,0,0,0)');
+            
+            ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(x, y - 25, glowSize, 0, Math.PI * 2); ctx.fill();
+
+            // Пламя
+            const flameH = (35 + pulse) * scale;
+            const flameW = 18 * scale;
+            ctx.fillStyle = colorOuter;
+            ctx.beginPath();
+            ctx.moveTo(x - flameW/2, y);
+            ctx.quadraticCurveTo(x + flicker, y - flameH * 0.8, x, y - flameH - flicker);
+            ctx.quadraticCurveTo(x + flameW/2 + flicker, y - flameH * 0.8, x + flameW/2, y);
+            ctx.fill();
+
+            ctx.fillStyle = colorInner;
+            ctx.beginPath();
+            ctx.moveTo(x - flameW/3, y - 6);
+            ctx.quadraticCurveTo(x + flicker*0.5, y - flameH * 0.6, x, y - flameH * 0.8);
+            ctx.quadraticCurveTo(x + flameW/3 + flicker*0.5, y - flameH * 0.6, x + flameW/3, y - 6);
+            ctx.fill();
+
+            drawArchers(x, y, scale);
+        }
+
+        // --- ИЛЛЮСТРАЦИИ В КНИГЕ ---
+        function updateIllustrations() {
+            const illusts = [
+                { id: 'illust-fire', draw: (c, t) => {
+                    c.fillStyle = '#ff6a00';
+                    const h = 20 + Math.sin(t*0.01)*5;
+                    c.beginPath(); c.moveTo(60, 70); c.lineTo(45, 70-h); c.lineTo(75, 70-h); c.fill();
+                }},
+                { id: 'illust-oil', draw: (c, t) => {
+                    c.fillStyle = '#7a5a10';
+                    c.fillRect(55, 10, 10, 15);
+                    const dropY = 25 + (t % 45);
+                    c.beginPath(); c.arc(60, dropY, 3, 0, Math.PI*2); c.fill();
+                    c.fillRect(40, 72, 40, 4);
+                }},
+                { id: 'illust-fly', draw: (c, t) => {
+                    c.fillStyle = '#aaff00';
+                    const x = 60 + Math.cos(t*0.06)*22;
+                    const y = 40 + Math.sin(t*0.06)*18;
+                    c.fillRect(x, y, 4, 4);
+                }}
+            ];
+            illusts.forEach(cfg => {
+                const el = document.getElementById(cfg.id); if (!el) return;
+                const ctxI = el.getContext('2d');
+                ctxI.clearRect(0,0,120,80); cfg.draw(ctxI, Date.now() / 10);
+            });
+            if (document.getElementById('book').classList.contains('open')) requestAnimationFrame(updateIllustrations);
+        }
+
+        function drawScene() {
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            // Фон (река/деревья на 2+ перерождении)
+            if (state.rebirthCount >= 2) {
+                ctx.globalAlpha = 0.2;
+                ctx.fillStyle = '#002244';
+                ctx.beginPath(); ctx.moveTo(0, centerY+100);
+                for(let i=0; i<=width; i+=40) ctx.lineTo(i, centerY+100+Math.sin(i*0.01 + Date.now()*0.001)*8);
+                ctx.lineTo(width, height); ctx.lineTo(0, height); ctx.fill();
+                ctx.fillStyle = '#0a1a0a';
+                [-250, 250].forEach(off => {
+                    ctx.fillRect(centerX+off-5, centerY+80, 10, 40);
+                    ctx.beginPath(); ctx.moveTo(centerX+off-30, centerY+80); ctx.lineTo(centerX+off, centerY+20); ctx.lineTo(centerX+off+30, centerY+80); ctx.fill();
+                });
+                ctx.globalAlpha = 1;
+            }
+
+            // Цвет свечи
+            let candleCol = '#ffffff';
+            if (state.rebirthCount === 1) candleCol = '#d1d1d1';
+            else if (state.rebirthCount === 2) candleCol = '#a3a3a3';
+            else if (state.rebirthCount >= 3) candleCol = '#757575';
+            
+            ctx.fillStyle = candleCol;
+            ctx.fillRect(centerX - 10, centerY, 20, 90);
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.fillRect(centerX + 2, centerY, 8, 90);
+
+            drawFlame(centerX, centerY, 0.85 + (state.fireLevel * 0.12));
+
+            // Светлячок
+            if (state.fireflies > 0) {
+                const t = Date.now() / 1000;
+                const fx = centerX + Math.cos(t * 1.5) * 65;
+                const fy = centerY - 40 + Math.sin(t * 2.5) * 35;
+                ctx.fillStyle = state.gasTimer > 0 ? '#00ffff' : '#aaff00';
+                ctx.shadowBlur = 10; ctx.shadowColor = ctx.fillStyle;
+                ctx.fillRect(fx, fy, 5, 5); ctx.shadowBlur = 0;
+            }
+        }
+
+        function handleLightClick() {
+            if (!audioCtx) playMusic();
+            let gain = state.hasOil ? 3 : 1;
+            if (state.gasTimer > 0) gain *= 3;
+            state.light += gain;
+            state.flashOpacity = 0.4;
+            updateUI();
+        }
+
+        function buyUpgrade(type) {
+            if (type === 'fire' && state.light >= state.fireCost) {
+                state.light -= state.fireCost; state.fireLevel++; state.fireCost = Math.floor(state.fireCost * 1.45);
+            } else if (type === 'oil' && state.light >= state.oilCost) {
+                state.light -= state.oilCost; state.hasOil = true; state.oilBoostTimer = 200; state.oilCost = Math.floor(state.oilCost * 1.8);
+            } else if (type === 'firefly' && state.light >= state.fireflyCost) {
+                state.light -= state.fireflyCost; state.fireflies++; state.fireflyCost = Math.floor(state.fireflyCost * 2.1);
+            } else if (type === 'gas' && state.light >= state.gasCost) {
+                state.light -= state.gasCost; state.gasTimer = 600; state.gasCost = Math.floor(state.gasCost * 2.5);
+            }
+            updateUI(); saveGame();
+        }
+
+        function startRebirth() {
+            const cost = 1000 * Math.pow(3.5, state.rebirthCount);
+            if (state.light >= cost) { state.isRebirthing = true; darknessBtn.style.display = 'block'; }
+        }
+
+        function completeRebirth() {
+            state.rebirthCount++; state.light = 0; state.fireLevel = 1; state.fireflies = 0;
+            state.isRebirthing = false; darknessBtn.style.display = 'none';
+            state.fireCost = 50; state.oilCost = 150; state.fireflyCost = 300;
+            playMusic(); updateUI(); saveGame();
+        }
+
+        function toggleShop() { document.getElementById('shop').classList.toggle('open'); }
+        function toggleBook() { 
+            const b = document.getElementById('book'); b.classList.toggle('open');
+            if (b.classList.contains('open')) updateIllustrations();
+        }
+
+        function updateUI() {
+            document.getElementById('light-count').innerText = Math.floor(state.light);
+            document.getElementById('fire-lvl').innerText = state.fireLevel;
+            document.getElementById('fire-cost').innerText = state.fireCost;
+            document.getElementById('oil-cost').innerText = state.oilCost;
+            document.getElementById('firefly-cost').innerText = state.fireflyCost;
+            document.getElementById('rebirth-count-ui').innerText = state.rebirthCount;
+            document.getElementById('rebirth-cost-val').innerText = Math.floor(1000 * Math.pow(3.5, state.rebirthCount));
+            if (state.fireLevel >= 5) document.getElementById('buy-rebirth').classList.remove('hidden');
+            if (state.rebirthCount >= 2) document.getElementById('buy-gas').classList.remove('hidden');
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (Math.abs(e.clientX - width/2) < 60) handleLightClick();
+        });
+
+        function loop() {
+            ctx.fillStyle = '#000'; ctx.fillRect(0,0,width,height);
+            if (state.flashOpacity > 0) state.flashOpacity -= 0.02;
+            if (state.gasTimer > 0) state.gasTimer--;
+            
+            if (state.fireflies > 0) {
+                const iv = state.rebirthCount >= 1 ? 4500 : 8000;
+                if (Date.now() - state.lastFireflyTime > iv) { handleLightClick(); state.lastFireflyTime = Date.now(); }
+            }
+            drawScene();
+            requestAnimationFrame(loop);
+        }
+
+        loop(); updateUI();
+    </script>
+</body>
+</html>
+
+  
